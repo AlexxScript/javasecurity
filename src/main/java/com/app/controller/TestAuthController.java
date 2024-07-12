@@ -30,11 +30,11 @@ public class TestAuthController {
     @Autowired
     UserService userService;
 
-    // @GetMapping("/get")
-    // @PreAuthorize("hasAuthority('READ')")
-    // public String helloGet(){
-    //     return "Hello World - GET";
-    // }
+    @GetMapping("/get")
+    // @PreAuthorize("hasRole('ROLE_DEVELOPER')")
+    public String helloGet(){
+        return "Hello World - GET";
+    }
 
     // @PostMapping("/post")
     // public String helloPost(){
@@ -61,6 +61,12 @@ public class TestAuthController {
         model.addAttribute("user", new UserEntity());
         return "register";
     }
+
+    @GetMapping("/login")
+    public String showFormLogin() {
+        return "login";
+    }
+    
 
     @PostMapping(path = "/register")
     public String registerUser(@ModelAttribute UserEntity userEntity) {
