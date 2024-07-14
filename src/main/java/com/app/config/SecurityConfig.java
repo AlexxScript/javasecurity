@@ -1,115 +1,67 @@
 package com.app.config;
 
-import java.util.ArrayList;
-import java.util.List;
-
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
-import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.core.userdetails.User;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.NoOpPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
-
-import com.app.service.UserDetailServiceImpl;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
+import com.app.service.UsuarioService;
 
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
 public class SecurityConfig {
+    @Autowired
+    private UsuarioService usuarioService;
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity) throws Exception {
-        // aqui se definen las condiciones para la autenticacion
-        return httpSecurity
-                .authorizeHttpRequests(auth -> {
-                    auth.requestMatchers("/auth/login").permitAll();
-                    auth.requestMatchers("/auth/adduser").permitAll();
-                    auth.requestMatchers("/auth/register").permitAll();
-                    auth.requestMatchers("/auth/get").hasRole("DEVELOPER");
-                    auth.anyRequest().authenticated();
-                })
-                .formLogin(form -> form
-                        .loginPage("/auth/login")
-                        .permitAll())
-                .logout(logout -> logout
-                        .logoutUrl("/logout")
-                        .logoutSuccessUrl("/auth/login?logout")
-                        .permitAll())
-                // .csrf(csrf -> csrf.disable())// esta proteccion se ocupa para mvc no para
-                // REST
-                .httpBasic(Customizer.withDefaults()) // se utiliza cuando usamos usuario y contrasenia
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                // hay otra forma de usar esto atraves de Preautorize en los controladores
-                // .authorizeHttpRequests(http -> {
-                // //endpoints publicos
-                // http.requestMatchers(HttpMethod.GET,"/auth/hello").permitAll();
-                // //endpoints privados
-                // http.requestMatchers(HttpMethod.GET,"/auth/hello-secured").hasAuthority("CREATE");
-                // //endpoints no especificados
-                // http.anyRequest().denyAll();
-                // })
-                .build();
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
     }
 
     @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration)
-            throws Exception {
+    public DaoAuthenticationProvider authenticationProvider() {
+        DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
+        authProvider.setUserDetailsService(usuarioService);
+        authProvider.setPasswordEncoder(passwordEncoder());
+        return authProvider;
+    }
+
+    @Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) throws Exception {
         return authenticationConfiguration.getAuthenticationManager();
     }
 
     @Bean
-    public AuthenticationProvider authenticationProvider(UserDetailServiceImpl userDetailService) {
-        // este es nuestro proveedor
-        DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
-        provider.setPasswordEncoder(passwordEncoder());
-        // provider.setUserDetailsService(userDetailsService());
-        provider.setUserDetailsService(userDetailService);
-        return provider;
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        http
+            .authorizeHttpRequests(auth -> {
+                auth.requestMatchers("/css/**", "/js/**", "/img/persona/**", "/login", "/register","/Usuario/Nuevo").permitAll();
+                auth.requestMatchers("/rutasegura").hasAuthority("Miembro");
+                auth.requestMatchers("/**").hasAnyAuthority("Administrador", "Miembro");
+                auth.anyRequest().authenticated();
+            })
+            .formLogin(form -> form
+                .loginPage("/login")
+                .defaultSuccessUrl("/rutasegura")
+                .failureUrl("/login?error=Usuario o Clave incorrecta")
+                .permitAll())
+            .logout(logout -> logout
+                .logoutRequestMatcher(new AntPathRequestMatcher("/logout"))
+                .logoutSuccessUrl("/login")
+                .invalidateHttpSession(true)
+                .clearAuthentication(true)
+                .permitAll())
+            .authenticationProvider(authenticationProvider());
+
+        return http.build();
     }
-
-    // @Bean
-    // public UserDetailsService userDetailsService(){
-    // // hipoteticamente lo trajimos de una base de datos, pero en este momento se
-    // esta guardando en memoria
-    // List<UserDetails> userDetailsList = new ArrayList<>();
-
-    // userDetailsList.add(
-    // User.withUsername("Alejandro")
-    // .password("1234")
-    // .roles("ADMIN")
-    // .authorities("READ","CREATE")
-    // .build());
-
-    // userDetailsList.add(
-    // User.withUsername("Daniel")
-    // .password("1234")
-    // .roles("USER")
-    // .authorities("READ")
-    // .build());
-
-    // return new InMemoryUserDetailsManager(userDetailsList);
-    // }
-
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();// solo para pruebas lo que realmentese usa es Bcrypt
-    }
-
-    // public static void main(String[] args) {
-    // System.out.println(new BCryptPasswordEncoder().encode("1234"));
-    // }
 }
