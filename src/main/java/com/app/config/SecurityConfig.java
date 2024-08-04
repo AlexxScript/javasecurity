@@ -50,7 +50,7 @@ public class SecurityConfig {
                 auth.anyRequest().authenticated();
             })
             .formLogin(form -> form
-                .loginPage("/login")
+                // .loginPage("/login")
                 .defaultSuccessUrl("/rutasegura")
                 .failureUrl("/login?error=Usuario o Clave incorrecta")
                 .permitAll())
